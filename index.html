@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Manager 2026 - Pro League Edition</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        :root {
+            --bg-color: #080b10;
+            --card-bg: #111827;
+            --card-border: #1f2937;
+            --primary: #10b981;
+            --accent: #f59e0b;
+            --danger: #ef4444;
+            --neon-blue: #3b82f6;
+            --text-color: #f3f4f6;
+            --sub-text: #9ca3af;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color); color: var(--text-color);
+            margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center;
+        }
+
+        .navbar {
+            width: 100%; background: #0f172a; padding: 15px 30px;
+            display: flex; justify-content: space-between; align-items: center;
+            box-sizing: border-box; border-bottom: 2px solid #1e293b;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+        }
+        .logo { font-weight: 800; font-size: 22px; color: var(--primary); text-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
+
+        .news-ticker-container {
+            width: 100%; background: #1e293b; border-bottom: 1px solid var(--card-border);
+            display: flex; align-items: center; overflow: hidden; height: 38px;
+        }
+        .news-title {
+            background: var(--danger); color: #fff; padding: 0 15px; font-weight: bold;
+            font-size: 13px; height: 100%; display: flex; align-items: center; z-index: 2; white-space: nowrap;
+        }
+        .news-ticker { display: flex; white-space: nowrap; animation: ticker 25s linear infinite; }
+        .news-item { display: inline-block; padding: 0 30px; font-size: 13px; color: var(--accent); font-weight: 600; }
+
+        @keyframes ticker {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
+        }
+
+        .container { width: 100%; max-width: 950px; padding: 20px; box-sizing: border-box; }
+        .view { display: none; flex-direction: column; align-items: center; width: 100%; }
+        .active-view { display: flex; }
+
+        .card {
+            background-color: var(--card-bg); padding: 25px; border-radius: 16px;
+            border: 1px solid var(--card-border); width: 100%; max-width: 450px; text-align: center;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+        }
+
+        .input-group { margin-bottom: 15px; text-align: right; }
+        .input-group label { display: block; margin-bottom: 5px; font-size: 13px; color: var(--sub-text); }
+        .input-group input, .input-group select {
+            width: 100%; padding: 12px; border-radius: 8px;
+            border: 1px solid var(--card-border); background: #030712;
+            color: #fff; box-sizing: border-box; outline: none; font-size: 14px;
+        }
+
+        .action-btn {
+            padding: 12px 20px; background: var(--primary); color: #fff;
+            border: none; border-radius: 8px; cursor: pointer; font-weight: bold;
+            transition: all 0.2s ease; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        .action-btn:hover { opacity: 0.9; transform: translateY(-2px); }
+        .action-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-danger { background: var(--danger); box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); }
+        .btn-accent { background: var(--accent); color: #000; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3); }
+        .btn-secondary { background: #374151; box-shadow: none; }
+        .btn-blue { background: var(--neon-blue); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); }
+
+        .tabs { display: flex; gap: 10px; width: 100%; margin-bottom: 20px; flex-wrap: wrap; }
+        .tab-btn {
+            flex: 1; padding: 12px; background: var(--card-bg); border: 1px solid var(--card-border);
+            color: #fff; border-radius: 10px; cursor: pointer; font-weight: bold; text-align: center;
+            min-width: 120px; transition: 0.2s;
+        }
+        .tab-btn.active { background: var(--primary); border-color: var(--primary); }
+
+        .dash-card {
+            width: 100%; background: var(--card-bg); padding: 20px; border-radius: 14px;
+            margin-bottom: 20px; border: 1px solid var(--card-border);
+            display: flex; justify-content: space-between; align-items: center; box-sizing: border-box;
+        }
+
+        .league-table, .squad-table {
+            width: 100%; border-collapse: collapse; background: var(--card-bg);
+            margin-bottom: 25px; border-radius: 12px; overflow: hidden; border: 1px solid var(--card-border);
+        }
+        .league-table th, .squad-table th { background: #1e293b; color: var(--accent); padding: 12px; font-size: 13px; }
+        .league-table td, .squad-table td { padding: 12px; text-align: center; border-bottom: 1px solid var(--card-border); font-size: 14px; }
+        
+        .badge-real {
+            display: inline-block; width: 10px; height: 10px; background-color: #10b981;
+            border-radius: 50%; margin-left: 6px; box-shadow: 0 0 8px #10b981;
+        }
+
+        /* عجلة الحظ */
+        .wheel-container { position: relative; width: 280px; height: 280px; margin: 20px auto; }
+        .wheel-pointer {
+            position: absolute; top: -15px; left: 50%; transform: translateX(-50%);
+            width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent;
+            border-top: 25px solid var(--danger); z-index: 10;
+        }
+        #canvas-wheel {
+            width: 280px; height: 280px; border-radius: 50%;
+            border: 4px solid var(--accent); box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+            transition: transform 4s cubic-bezier(0.15, 0.99, 0.35, 1);
+        }
+
+        /* كارت النتيجة داخل الصفحة */
+        .score-box {
+            background: #030712; padding: 15px; border-radius: 10px;
+            border: 1px solid var(--primary); margin-top: 15px; display: none; text-align: center;
+        }
+        .score-text { font-size: 28px; font-weight: bold; color: var(--accent); margin: 5px 0; }
+    </style>
+</head>
+<body>
+
+    <div class="navbar">
+        <div class="logo">⚽ CYBER MANAGER 2026</div>
+        <button class="action-btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="resetGame()">تصفير الحساب 🔄</button>
+    </div>
+
+    <div class="news-ticker-container">
+        <div class="news-title">🔴 أخبار عاجلة</div>
+        <div class="news-ticker" id="news-ticker-content">
+            <span class="news-item">⚽ انطلاق الموسم الجديد ببطولة الدوري العام أونلاين!</span>
+        </div>
+    </div>
+
+    <div class="container">
+
+        <div id="view-room-selection" class="view active-view">
+            <div class="card">
+                <h2 style="color:var(--primary); margin-bottom: 20px;">دخول السيرفر الأونلاين 🌐</h2>
+                
+                <div id="room-main-menu">
+                    <button class="action-btn" style="width:100%; margin-bottom:12px;" onclick="showRoomForm('create')">إنشاء غرفة جديدة (CREATE)</button>
+                    <button class="action-btn btn-accent" style="width:100%;" onclick="showRoomForm('join')">الانضمام لغرفة (JOIN)</button>
+                </div>
+
+                <div id="room-create-form" style="display:none;">
+                    <div class="input-group">
+                        <label>اسم المدرب:</label>
+                        <input type="text" id="c-player-name" placeholder="ادخل اسمك">
+                    </div>
+                    <div class="input-group">
+                        <label>اسم الغرفة:</label>
+                        <input type="text" id="c-room-name" placeholder="مثال: دوري الأسطورة">
+                    </div>
+                    <div class="input-group">
+                        <label>كود الغرفة (4 أرقام فقط):</label>
+                        <input type="text" id="c-room-code" maxlength="4" placeholder="مثال: 1234">
+                    </div>
+                    <button class="action-btn" style="width:100%" onclick="submitCreateRoom()">إنشاء الغرفة 🚀</button>
+                    <button class="action-btn btn-secondary" style="width:100%; margin-top:8px;" onclick="showRoomMenu()">رجوع</button>
+                </div>
+
+                <div id="room-join-form" style="display:none;">
+                    <div class="input-group">
+                        <label>اسم المدرب:</label>
+                        <input type="text" id="j-player-name" placeholder="ادخل اسمك">
+                    </div>
+                    <div class="input-group">
+                        <label>كود الغرفة (4 أرقام فقط):</label>
+                        <input type="text" id="j-room-code" maxlength="4" placeholder="مثال: 1234">
+                    </div>
+                    <button class="action-btn btn-accent" style="width:100%" onclick="submitJoinRoom()">دخول الغرفة ➔</button>
+                    <button class="action-btn btn-secondary" style="width:100%; margin-top:8px;" onclick="showRoomMenu()">رجوع</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-wheel" class="view">
+            <h2 id="welcome-msg" style="color:var(--primary)"></h2>
+            
+            <div class="wheel-container">
+                <div class="wheel-pointer"></div>
+                <canvas id="canvas-wheel" width="280" height="280"></canvas>
+            </div>
+
+            <button class="action-btn" id="spin-btn" onclick="spinWheel()">لف العجلة 🎡</button>
+            
+            <div id="spin-result" style="display:none; margin-top: 15px; text-align: center;">
+                <h3 id="team-result-name" style="color:var(--primary);"></h3>
+                <h4 id="team-result-budget" style="color:var(--accent);"></h4>
+                <button class="action-btn btn-blue" onclick="goToDashboard()">استلام الفريق والبدء ⚽</button>
+            </div>
+        </div>
+
+        <div id="view-dash" class="view">
+            
+            <div id="room-info-card" class="dash-card" style="border-color: var(--accent);">
+                <div>
+                    <h4 id="room-display-name" style="margin:0; color:var(--accent);"></h4>
+                    <div id="chat-box"></div>
+                </div>
+                <div>
+                    <span style="font-size:12px; color:var(--sub-text);">المدربون بالغرفة:</span>
+                    <h3 id="player-count" style="margin:0; color:var(--primary);">1</h3>
+                </div>
+            </div>
+
+            <div class="dash-card">
+                <div>
+                    <h2 id="dash-team" style="margin:0; color:var(--primary)"></h2>
+                    <div id="dash-manager" style="color:var(--sub-text);"></div>
+                </div>
+                <div style="text-align: left;">
+                    <div style="font-size:13px; color:var(--sub-text)">الميزانية: <b id="dash-budget" style="color:var(--primary)"></b></div>
+                    <div style="font-size:13px; color:var(--sub-text); margin-top:4px;">الجولة الحالية: <b id="dash-round" style="color:var(--accent)">1</b></div>
+                </div>
+            </div>
+
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('squad')">التشكيلة ⚽</button>
+                <button class="tab-btn" onclick="switchTab('standings')">جدول الترتيب 🏆</button>
+                <button class="tab-btn" onclick="switchTab('market')">سوق اللاعبين 🛒</button>
+                <button class="tab-btn" onclick="switchTab('offers')">العروض 📩 <b id="offer-badge" style="color:var(--accent);"></b></button>
+                <button class="tab-btn btn-accent" onclick="showView('view-matches')">الماتشات ⚔️</button>
+            </div>
+
+            <div id="tab-squad" style="width:100%;">
+                <h3 style="color:var(--primary);">التشكيلة الأساسية</h3>
+                <table class="squad-table">
+                    <thead><tr><th>الاسم</th><th>المركز</th><th>التقييم</th><th>السعر</th></tr></thead>
+                    <tbody id="mains-list"></tbody>
+                </table>
+
+                <h3 style="color:var(--accent);">دكة الاحتياط</h3>
+                <table class="squad-table">
+                    <thead><tr><th>الاسم</th><th>المركز</th><th>التقييم</th><th>السعر</th></tr></thead>
+                    <tbody id="subs-list"></tbody>
+                </table>
+            </div>
+
+            <div id="tab-standings" style="width:100%; display:none;">
+                <h3 style="color:var(--accent); text-align:center;">🏆 جدول ترتيب الدوري العام</h3>
+                <table class="league-table">
+                    <thead>
+                        <tr>
+                            <th>#</th><th>الفريق / المدرب</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>PTS</th>
+                        </tr>
+                    </thead>
+                    <tbody id="standings-body"></tbody>
+                </table>
+            </div>
+
+            <div id="tab-market" style="width:100%; display:none;">
+                <h3 style="color:var(--primary);">سوق الانتقالات 🛒</h3>
+                <table class="squad-table">
+                    <thead><tr><th>اللاعب</th><th>الفريق الأصلي</th><th>المركز</th><th>التقييم</th><th>السعر</th><th>شراء</th></tr></thead>
+                    <tbody id="market-list"></tbody>
+                </table>
+            </div>
+
+            <div id="tab-offers" style="width:100%; display:none;">
+                <h3 style="color:var(--accent);">صندوق العروض الواردة 📩</h3>
+                <div id="offers-container" style="display:flex; flex-direction:column; gap:15px;"></div>
+            </div>
+        </div>
+
+        <div id="view-matches" class="view">
+            <div class="card" style="max-width: 600px; width:100%;">
+                <h2>مباراة الجولة - رقم <span id="match-round-num" style="color:var(--accent)">1</span> ⚽</h2>
+                <p style="color: var(--sub-text); font-size: 13px;">يلتزم جميع المدربين بلعب مباراة الجولة بالترتيب!</p>
+                
+                <div style="background: var(--bg-color); padding: 20px; border-radius: 12px; margin: 20px 0; border: 1px solid var(--card-border);">
+                    <h3 style="margin: 0 0 15px 0; color: var(--accent);">🔥 المواجهة المباشرة</h3>
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: bold;">
+                        <span id="match-my-team" style="color:var(--primary)">فريقك</span>
+                        <b style="color: var(--danger);">VS</b>
+                        <span id="match-opp-team" style="color:var(--neon-blue)">الخصم</span>
+                    </div>
+
+                    <div id="match-score-card" class="score-box">
+                        <div style="color: var(--sub-text); font-size: 12px;">النتيجة النهائية للمباراة</div>
+                        <div class="score-text" id="match-score-display">0 - 0</div>
+                        <div style="color: var(--primary); font-size: 13px; margin-top: 5px;">تم تسجيل النتيجة في الجدول! ⏳ بانتظار الجولة التالية...</div>
+                    </div>
+
+                    <button class="action-btn" id="play-match-btn" style="width: 100%; margin-top: 20px;" onclick="playRoundMatch()">لعب مباراة الجولة 🚀</button>
+                </div>
+
+                <button class="action-btn btn-secondary" style="width: 100%;" onclick="showView('view-dash')">رجوع للوحة التحكم ↩️</button>
+            </div>
+        </div>
+
+        <div id="view-admin" class="view">
+            <div class="card" style="max-width: 700px; width:100%;">
+                <h2 style="color:var(--danger);">⚙️ لوحة الإدارة ورئيس الاتحاد (ADMIN)</h2>
+                
+                <div style="background:#030712; padding:15px; border-radius:10px; margin-bottom:15px; text-align:right;">
+                    <h4 style="margin:0 0 10px 0; color:var(--accent)">1. نشر خبر عاجل للشريط 📢</h4>
+                    <input type="text" id="admin-news-input" placeholder="اكتب الخبر هنا..." style="width:100%; padding:8px; margin-bottom:8px; border-radius:6px; background:#111827; color:#fff; border:1px solid #374151;">
+                    <button class="action-btn btn-accent" style="width:100%" onclick="adminPublishNews()">نشر الخبر فوراً 🚀</button>
+                </div>
+
+                <div style="background:#030712; padding:15px; border-radius:10px; margin-bottom:15px; text-align:right;">
+                    <h4 style="margin:0 0 10px 0; color:var(--primary)">2. نقل لاعب مباشر بين الأندية 🔁</h4>
+                    <div class="input-group">
+                        <label>من فريق:</label>
+                        <select id="admin-from-team" onchange="loadAdminPlayers()"></select>
+                    </div>
+                    <div class="input-group">
+                        <label>اللاعب:</label>
+                        <select id="admin-player-select"></select>
+                    </div>
+                    <div class="input-group">
+                        <label>إلى فريق:</label>
+                        <select id="admin-to-team"></select>
+                    </div>
+                    <button class="action-btn" style="width:100%" onclick="adminTransferPlayer()">تأكيد نقل اللاعب 🔄</button>
+                </div>
+
+                <div style="background:#030712; padding:15px; border-radius:10px; text-align:right;">
+                    <h4 style="margin:0 0 10px 0; color:var(--neon-blue)">3. تقديم عرض لشراء لاعب من مدرب 📩</h4>
+                    <div class="input-group">
+                        <label>نادي الكمبيوتر المشتري:</label>
+                        <select id="admin-buyer-team"></select>
+                    </div>
+                    <div class="input-group">
+                        <label>المدرب المستهدف:</label>
+                        <select id="admin-target-player" onchange="loadAdminTargetSquad()"></select>
+                    </div>
+                    <div class="input-group">
+                        <label>لاعب المدرب:</label>
+                        <select id="admin-target-squad"></select>
+                    </div>
+                    <div class="input-group">
+                        <label>المبلغ المعروض ($M):</label>
+                        <input type="number" id="admin-offer-amount" placeholder="مثال: 80">
+                    </div>
+                    <button class="action-btn btn-blue" style="width:100%" onclick="adminSendOffer()">إرسال العرض للمدرب 📩</button>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <script src="teamsData.js"></script>
+    <script>
+        const socket = io();
+
+        let nickname = "";
+        let myTeam = null;
+        let budget = 150;
+        let currentRound = 1;
+        let roomCodeGlobal = "";
+        let hasSpun = false;
+        let roomPlayersList = [];
+
+        const weakTeams = ["Al Ahly", "Zamalek", "Mamelodi Sundowns", "Pyramids", "Al Hilal"];
+
+        window.onload = function() {
+            let saved = localStorage.getItem("cyber_manager_save");
+            if (saved) {
+                let data = JSON.parse(saved);
+                nickname = data.nickname;
+                myTeam = data.myTeam;
+                budget = data.budget;
+                hasSpun = data.hasSpun || false;
+            }
+        };
+
+        function saveState() {
+            localStorage.setItem("cyber_manager_save", JSON.stringify({
+                nickname, myTeam, budget, hasSpun
+            }));
+        }
+
+        function resetGame() {
+            localStorage.removeItem("cyber_manager_save");
+            location.reload();
+        }
+
+        function showRoomForm(type) {
+            document.getElementById('room-main-menu').style.display = 'none';
+            document.getElementById(type === 'create' ? 'room-create-form' : 'room-join-form').style.display = 'block';
+        }
+
+        function showRoomMenu() {
+            document.getElementById('room-create-form').style.display = 'none';
+            document.getElementById('room-join-form').style.display = 'none';
+            document.getElementById('room-main-menu').style.display = 'block';
+        }
+
+        function submitCreateRoom() {
+            nickname = document.getElementById('c-player-name').value.trim();
+            const roomName = document.getElementById('c-room-name').value.trim();
+            const roomCode = document.getElementById('c-room-code').value.trim();
+
+            if (nickname && roomName && roomCode) {
+                socket.emit('createRoom', { roomName, roomCode, playerName: nickname });
+            } else alert("ادخل كافة البيانات!");
+        }
+
+        function submitJoinRoom() {
+            nickname = document.getElementById('j-player-name').value.trim();
+            const roomCode = document.getElementById('j-room-code').value.trim();
+
+            if (nickname && roomCode) {
+                socket.emit('joinRoom', { roomCode, playerName: nickname });
+            } else alert("ادخل كافة البيانات!");
+        }
+
+        socket.on('adminModeActivated', (data) => {
+            alert("تم تفعيل لوحة الإدارة (الأدمن) بنجاح!");
+            showView('view-admin');
+            setupAdminPanel();
+        });
+
+        socket.on('roomCreated', (data) => {
+            roomCodeGlobal = data.roomCode;
+            document.getElementById("welcome-msg").innerText = `أهلاً بك المدرب ${nickname} 🏆`;
+            document.getElementById("room-display-name").innerText = `غرفة: ${data.roomName} (${data.roomCode})`;
+            roomPlayersList = data.players;
+            showView("view-wheel");
+            drawWheel();
+        });
+
+        socket.on('joinedSuccessfully', (data) => {
+            roomCodeGlobal = data.roomCode;
+            document.getElementById("welcome-msg").innerText = `أهلاً بك المدرب ${nickname} 🏆`;
+            document.getElementById("room-display-name").innerText = `غرفة: ${data.roomName} (${data.roomCode})`;
+            roomPlayersList = data.players;
+            showView("view-wheel");
+            drawWheel();
+        });
+
+        socket.on('playerJoined', (data) => {
+            roomPlayersList = data.players;
+            document.getElementById('player-count').innerText = data.players.length;
+            renderStandings();
+        });
+
+        socket.on('errorMsg', (msg) => alert(msg));
+
+        socket.on('globalNewsBroadcast', (msg) => {
+            let container = document.getElementById("news-ticker-content");
+            container.innerHTML = `<span class="news-item">📢 ${msg}</span>` + container.innerHTML;
+        });
+
+        socket.on('roundAdvanced', (data) => {
+            currentRound = data.currentRound;
+            roomPlayersList = data.players;
+            document.getElementById('dash-round').innerText = currentRound;
+            document.getElementById('match-round-num').innerText = currentRound;
+            document.getElementById('play-match-btn').disabled = false;
+            document.getElementById('match-score-card').style.display = 'none';
+            setupRoundMatch();
+            renderStandings();
+            alert(data.message);
+        });
+
+        socket.on('updateStandings', (data) => {
+            roomPlayersList = data.players;
+            renderStandings();
+        });
+
+        /* ----- عجلة الحظ ----- */
+        const colors = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6"];
+        function drawWheel() {
+            if (typeof teamsData === 'undefined') return;
+            const canvas = document.getElementById("canvas-wheel");
+            const ctx = canvas.getContext("2d");
+            const numTeams = teamsData.length;
+            const sliceAngle = (2 * Math.PI) / numTeams;
+
+            ctx.clearRect(0, 0, 280, 280);
+            for (let i = 0; i < numTeams; i++) {
+                ctx.beginPath();
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.moveTo(140, 140);
+                ctx.arc(140, 140, 140, i * sliceAngle, (i + 1) * sliceAngle);
+                ctx.fill();
+
+                ctx.save();
+                ctx.translate(140, 140);
+                ctx.rotate(i * sliceAngle + sliceAngle / 2);
+                ctx.textAlign = "right";
+                ctx.fillStyle = "#fff";
+                ctx.font = "bold 10px Arial";
+                ctx.fillText(teamsData[i].name, 130, 4);
+                ctx.restore();
+            }
+        }
+
+        function spinWheel() {
+            if (hasSpun) return alert("لقد استلمت فريقك بالفعل!");
+            document.getElementById("spin-btn").disabled = true;
+
+            const winningIndex = Math.floor(Math.random() * teamsData.length);
+            const sliceAngle = 360 / teamsData.length;
+            const stopAngle = 360 - (winningIndex * sliceAngle + sliceAngle / 2) - 90;
+            const totalRotation = 360 * 5 + stopAngle;
+
+            document.getElementById("canvas-wheel").style.transform = `rotate(${totalRotation}deg)`;
+
+            setTimeout(() => {
+                hasSpun = true;
+                myTeam = JSON.parse(JSON.stringify(teamsData[winningIndex]));
+                budget = weakTeams.includes(myTeam.name) ? 260 : 150;
+
+                socket.emit('assignTeam', { roomCode: roomCodeGlobal, teamName: myTeam.name });
+
+                document.getElementById("team-result-name").innerText = `فريقك هو: ${myTeam.name}`;
+                document.getElementById("team-result-budget").innerText = `الميزانية المخصصة: $${budget}M`;
+                document.getElementById("spin-result").style.display = "block";
+                saveState();
+            }, 4000);
+        }
+
+        function goToDashboard() {
+            renderDashboard();
+            setupRoundMatch();
+            showView("view-dash");
+        }
+
+        function renderDashboard() {
+            document.getElementById("dash-team").innerText = myTeam.name;
+            document.getElementById("dash-manager").innerText = `المدرب: ${nickname}`;
+            document.getElementById("dash-budget").innerText = `$${budget}M`;
+
+            document.getElementById("mains-list").innerHTML = myTeam.squad.map(p => p.main ? `
+                <tr><td><b>${p.n}</b></td><td>${p.p}</td><td><b style="color:var(--primary)">${p.r}</b></td><td>${p.v}</td></tr>
+            ` : '').join('');
+
+            document.getElementById("subs-list").innerHTML = myTeam.squad.map(p => !p.main ? `
+                <tr><td><b>${p.n}</b></td><td>${p.p}</td><td><b style="color:var(--accent)">${p.r}</b></td><td>${p.v}</td></tr>
+            ` : '').join('');
+
+            renderStandings();
+            renderMarket();
+        }
+
+        /* ----- تحديد منافس الجولة باسم فريق حقيقي من الدوري ----- */
+        function setupRoundMatch() {
+            if (!myTeam || !teamsData) return;
+            let otherTeams = teamsData.filter(t => t.name !== myTeam.name);
+            let oppIndex = (currentRound - 1) % otherTeams.length;
+            let opponentTeam = otherTeams[oppIndex].name;
+
+            document.getElementById('match-my-team').innerText = myTeam.name;
+            document.getElementById('match-opp-team').innerText = opponentTeam;
+        }
+
+        function playRoundMatch() {
+            let myScore = Math.floor(Math.random() * 4);
+            let oppScore = Math.floor(Math.random() * 4);
+
+            document.getElementById('play-match-btn').disabled = true;
+            document.getElementById('match-score-display').innerText = `${myScore} - ${oppScore}`;
+            document.getElementById('match-score-card').style.display = 'block';
+
+            socket.emit('playMatch', {
+                roomCode: roomCodeGlobal,
+                myScore, oppScore
+            });
+        }
+
+        function renderStandings() {
+            if (!teamsData) return;
+            let tbody = document.getElementById("standings-body");
+            
+            let fullList = teamsData.map(t => {
+                let humanPlayer = roomPlayersList.find(p => p.team === t.name);
+                if (humanPlayer) {
+                    return {
+                        name: t.name, isHuman: true, manager: humanPlayer.name,
+                        p: humanPlayer.played, w: humanPlayer.wins, d: humanPlayer.draws, l: humanPlayer.losses,
+                        gf: humanPlayer.gf, ga: humanPlayer.ga, pts: humanPlayer.points
+                    };
+                } else {
+                    return { name: t.name, isHuman: false, manager: "AI", p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 };
+                }
+            });
+
+            fullList.sort((a,b) => b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga));
+
+            tbody.innerHTML = fullList.map((t, idx) => `
+                <tr>
+                    <td><b>${idx + 1}</b></td>
+                    <td style="text-align:right;">
+                        ${t.isHuman ? '<span class="badge-real"></span>' : ''}
+                        <b>${t.name}</b> ${t.isHuman ? `<small style="color:var(--accent)">(${t.manager})</small>` : ''}
+                    </td>
+                    <td>${t.p}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td>
+                    <td>${t.gf}</td><td>${t.ga}</td><td><b style="color:var(--primary)">${t.pts}</b></td>
+                </tr>
+            `).join('');
+        }
+
+        function renderMarket() {
+            let tbody = document.getElementById("market-list");
+            let marketList = [];
+            teamsData.forEach(t => {
+                if (!myTeam || t.name !== myTeam.name) {
+                    t.squad.forEach(p => marketList.push({ ...p, team: t.name }));
+                }
+            });
+
+            tbody.innerHTML = marketList.slice(0, 15).map(p => `
+                <tr>
+                    <td><b>${p.n}</b></td><td>${p.team}</td><td>${p.p}</td>
+                    <td><b style="color:var(--primary)">${p.r}</b></td><td>${p.v}</td>
+                    <td><button class="action-btn btn-accent" style="padding:4px 8px; font-size:12px;" onclick="buyPlayer('${p.n}', '${p.v}')">شراء 🤝</button></td>
+                </tr>
+            `).join('');
+        }
+
+        function buyPlayer(name, priceStr) {
+            let cost = parseInt(priceStr.replace('$', '').replace('M', '')) || 20;
+            if (cost > budget) return alert("ميزانيتك لا تكفي!");
+            budget -= cost;
+            myTeam.squad.push({ n: name, p: "FW", r: 82, v: `$${cost}M`, main: false });
+            document.getElementById("dash-budget").innerText = `$${budget}M`;
+            saveState(); renderDashboard();
+            alert(`تمت صفقة شراء ${name} بنجاح! ⚽`);
+        }
+
+        /* ----- الأدمن ----- */
+        function setupAdminPanel() {
+            let fromSelect = document.getElementById("admin-from-team");
+            let toSelect = document.getElementById("admin-to-team");
+            let buyerSelect = document.getElementById("admin-buyer-team");
+
+            let optionsHtml = teamsData.map(t => `<option value="${t.name}">${t.name}</option>`).join('');
+            fromSelect.innerHTML = optionsHtml;
+            toSelect.innerHTML = optionsHtml;
+            buyerSelect.innerHTML = optionsHtml;
+
+            loadAdminPlayers();
+            loadAdminTargetPlayers();
+        }
+
+        function loadAdminPlayers() {
+            let teamName = document.getElementById("admin-from-team").value;
+            let team = teamsData.find(t => t.name === teamName);
+            let select = document.getElementById("admin-player-select");
+            if (team) {
+                select.innerHTML = team.squad.map(p => `<option value="${p.n}">${p.n} (${p.p} - ${p.r})</option>`).join('');
+            }
+        }
+
+        function loadAdminTargetPlayers() {
+            let select = document.getElementById("admin-target-player");
+            select.innerHTML = roomPlayersList.map(p => `<option value="${p.id}">${p.name} (${p.team})</option>`).join('');
+            loadAdminTargetSquad();
+        }
+
+        function loadAdminTargetSquad() {
+            let playerId = document.getElementById("admin-target-player").value;
+            let player = roomPlayersList.find(p => p.id === playerId);
+            let select = document.getElementById("admin-target-squad");
+            if (player && player.team) {
+                let team = teamsData.find(t => t.name === player.team);
+                if (team) {
+                    select.innerHTML = team.squad.map(p => `<option value="${p.n}">${p.n}</option>`).join('');
+                }
+            }
+        }
+
+        function adminPublishNews() {
+            let news = document.getElementById("admin-news-input").value;
+            if (news) {
+                socket.emit('publishNews', { roomCode: roomCodeGlobal, newsText: news });
+                document.getElementById("admin-news-input").value = "";
+                alert("تم نشر الخبر عاجلاً!");
+            }
+        }
+
+        function adminTransferPlayer() {
+            let from = document.getElementById("admin-from-team").value;
+            let to = document.getElementById("admin-to-team").value;
+            let playerName = document.getElementById("admin-player-select").value;
+
+            socket.emit('adminTransferPlayer', { from, to, playerName });
+            alert(`تم نقل اللاعب ${playerName} من ${from} إلى ${to} بنجاح! 🔄`);
+        }
+
+        function adminSendOffer() {
+            let buyer = document.getElementById("admin-buyer-team").value;
+            let amount = document.getElementById("admin-offer-amount").value;
+            let playerName = document.getElementById("admin-target-squad").value;
+
+            socket.emit('adminSendOffer', { buyer, amount, playerName });
+            alert(`تم إرسال العرض بنجاح! 📩`);
+        }
+
+        function showView(id) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active-view'));
+            document.getElementById(id).classList.add('active-view');
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('tab-squad').style.display = tabName === 'squad' ? 'block' : 'none';
+            document.getElementById('tab-standings').style.display = tabName === 'standings' ? 'block' : 'none';
+            document.getElementById('tab-market').style.display = tabName === 'market' ? 'block' : 'none';
+            document.getElementById('tab-offers').style.display = tabName === 'offers' ? 'block' : 'none';
+        }
+    </script>
+</body>
+</html>
